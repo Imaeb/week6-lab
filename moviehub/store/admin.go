@@ -208,6 +208,12 @@ func (s *Store) CreateMovie(ctx context.Context, id int64, in MovieInput) (Admin
     }
     defer tx.Rollback(ctx) // ถ้า Commit ไปแล้ว Rollback จะไม่มีผล
 
+    // ให้คำขอเพิ่มหนังต่อคิวกันทีละคำขอ: ถ้าสองคำขอหา max(id) พร้อมกันจะได้เลขเดียวกันแล้วคำขอที่สองโดน 409
+    // คำขอที่ตามมาจะรอจนคำขอแรก commit แล้วค่อยหา max(id) จึงเห็นเลขล่าสุดเสมอ (ล็อกปลดเองเมื่อ transaction จบ)
+    if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(9000000)`); err != nil {
+        return AdminMovie{}, err
+    }
+
     if id == 0 {
         if err := tx.QueryRow(ctx,
             `SELECT greatest(coalesce(max(id), 0) + 1, 9000000) FROM movies`).Scan(&id); err != nil {
