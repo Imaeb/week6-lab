@@ -121,6 +121,10 @@ func validateMovie(in *store.MovieInput) (code, message string) {
     case in.OriginalTitle == "":
         in.OriginalTitle = in.Title // ไม่กรอกก็ใช้ชื่อเรื่องแทน
     }
+    // ยาวเกินคอลัมน์ varchar ใน schema ฐานข้อมูลจะปฏิเสธ แล้วกลายเป็น 500 จึงดักไว้ตรงนี้ (varchar นับเป็นตัวอักษร)
+    if utf8.RuneCountInString(in.OriginalTitle) > 255 || (in.TitleTh != nil && utf8.RuneCountInString(*in.TitleTh) > 255) {
+        return "BAD_TITLE", "ชื่อไทยและชื่อภาษาต้นฉบับต้องยาวไม่เกิน 255 ตัวอักษร"
+    }
     if in.OriginalLanguage == "" {
         in.OriginalLanguage = "en"
     }
@@ -129,6 +133,9 @@ func validateMovie(in *store.MovieInput) (code, message string) {
     }
     if in.PosterPath != nil && !strings.HasPrefix(*in.PosterPath, "/") && !strings.HasPrefix(*in.PosterPath, "http") {
         return "BAD_POSTER", "โปสเตอร์ต้องเป็น path ของ TMDB (/xxx.jpg) หรือ URL เต็ม (https://...)"
+    }
+    if in.PosterPath != nil && utf8.RuneCountInString(*in.PosterPath) > 100 {
+        return "BAD_POSTER", "ลิงก์โปสเตอร์ต้องยาวไม่เกิน 100 ตัวอักษร"
     }
     if in.ReleaseDate != nil {
         if _, err := time.Parse("2006-01-02", *in.ReleaseDate); err != nil {
